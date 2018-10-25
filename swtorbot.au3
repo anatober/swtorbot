@@ -1,5 +1,9 @@
 #RequireAdmin
 #Region ;**** Directives created by AutoIt3Wrapper_GUI ****
+#AutoIt3Wrapper_Icon=swtorbot.ico
+#AutoIt3Wrapper_Compile_Both=y
+#AutoIt3Wrapper_UseX64=y
+#AutoIt3Wrapper_Res_ProductName=SWTOR Bot
 #AutoIt3Wrapper_Res_requestedExecutionLevel=requireAdministrator
 #EndRegion ;**** Directives created by AutoIt3Wrapper_GUI ****
 
@@ -10,7 +14,7 @@ AutoItSetOption("PixelCoordMode", 2)
 #include <File.au3>
 #include <Array.au3>
 
-Global $paused = False, $handle = 0, $GiveGiftsModule, $CraftModule, $MissionsModule, $THLockboxesModule, $SpaceBotRecordModule, $SpaceBotModule, $BlackTalonModule, $GiveGiftsButton
+Global $paused = False, $handle = 0, $GiveGiftsModule, $CraftModule, $MissionsModule, $THLockboxesModule, $SpaceBotRecordModule, $SpaceBotReplayModule, $BlackTalonModule, $GiveGiftsButton
 
 CheckForSWTORWindow()
 ReadIni()
@@ -26,7 +30,7 @@ Select
 		TreasureHuntingLockboxes()
 	Case $SpaceBotRecordModule
 		SpacebotRecord()
-	Case $SpaceBotModule
+	Case $SpaceBotReplayModule
 		SpaceBot()
 	Case $BlackTalonModule
 		BlackTalon()
@@ -396,6 +400,6 @@ Func ReadIni()
 	$MissionsModule = IniRead(@ScriptDir & "\swtorbot.ini", "Modules", "Missions", 0) = 1
 	$THLockboxesModule = IniRead(@ScriptDir & "\swtorbot.ini", "Modules", "THLockboxes", 0) = 1
 	$SpaceBotRecordModule = IniRead(@ScriptDir & "\swtorbot.ini", "Modules", "SpaceBotRecord", 0) = 1
-	$SpaceBotModule = IniRead(@ScriptDir & "\swtorbot.ini", "Modules", "SpaceBot", 0) = 1
+	$SpaceBotReplayModule = IniRead(@ScriptDir & "\swtorbot.ini", "Modules", "SpaceBotReplay", 0) = 1
 	$BlackTalonModule = IniRead(@ScriptDir & "\swtorbot.ini", "Flashpoints", "BlackTalon", 0) = 1
 EndFunc   ;==>ReadIni
