@@ -10,10 +10,11 @@ AutoItSetOption("PixelCoordMode", 2)
 #include <File.au3>
 #include <Array.au3>
 
-Global $paused = True, $handle = 0, $GiveGiftsModule, $CraftModule, $MissionsModule, $THLockboxesModule, $SpaceBotRecordModule, $SpaceBotModule, $BlackTalonModule, $GiveGiftsButton, $RecordedDirectory
+Global $paused = False, $handle = 0, $GiveGiftsModule, $CraftModule, $MissionsModule, $THLockboxesModule, $SpaceBotRecordModule, $SpaceBotModule, $BlackTalonModule, $GiveGiftsButton, $RecordedDirectory
 
-CheckForSWTORWindow()
+;~ CheckForSWTORWindow()
 ReadIni()
+TogglePause()
 Select
 	Case $GiveGiftsModule
 		GiveGifts()
@@ -56,7 +57,7 @@ Func SpacebotRecord()
 	While Not _IsPressed(01) ;wait for lmb to get pressed
 		Sleep(1)
 	WEnd
-	MouseUp("left") ;hold down lmb
+	MouseUp("left") ;release lmb
 	Local $mc = MouseGetPos()
 	$missionCoords[0] = $mc[0] ;coord x of the galaxy part
 	$missionCoords[1] = $mc[1] ;coord y of the galaxy part
@@ -77,13 +78,18 @@ Func SpacebotRecord()
 	WEnd
 	Local $startRecordTime = TimerInit() ;start timer
 	While True
-		While _IsPressed(01) Or _IsPressed(02) ;if some mb is pressed
+		While _IsPressed(01) Or _IsPressed(02) Or _IsPressed(20) ;if some mb or spacebar is pressed
 			Local $strToAdd = "-"
 			Local $pos = MouseGetPos()
-			If ($pos[0] = $currentMousePos[0] And $pos[1] = $currentMousePos[1]) Then ;if mouse position didn't change
-				ContinueLoop
+;~ 			If ($pos[0] = $currentMousePos[0] And $pos[1] = $currentMousePos[1]) Then ;if mouse position didn't change
+;~ 				ContinueLoop
+;~ Else
+			If _IsPressed(01) Then ;if rmb is pressed
+				$strToAdd = "L"
 			ElseIf _IsPressed(02) Then ;if rmb is pressed
 				$strToAdd = "R"
+			ElseIf _IsPressed(20) Then ;if spacebar is pressed
+				$strToAdd = "S"
 			EndIf
 			$currentMousePos[0] = $pos[0] ;current pos = new pos
 			$currentMousePos[1] = $pos[1]
@@ -126,33 +132,37 @@ Func SpaceBotReplay($fileName)
 		Sleep(1)
 	WEnd
 
-	MouseDown("left")
 	Local $startPlayTime = TimerInit() ;start timer
 	For $i = 0 To UBound($data) - 1
+		If ($data[$i])[0] - TimerDiff($startPlayTime) > 1000 Then ;release buttons if there's a break
+			MouseUp("left")
+			MouseUp("right")
+		EndIf
 		While TimerDiff($startPlayTime) < ($data[$i])[0] ;if it's not time for another line yet
 			Sleep(1)
 		WEnd
-		If ($data[$i])[3] = "R" Then ;if rmb needs to be held
-			If Not _IsPressed(02) Then ;if rmb isn't held
-				MouseUp("left") ;release lmb
-				MouseDown("right") ;hold rmb
-			EndIf
-		ElseIf _IsPressed(02) Then ;otherwise if rmb is held
-			MouseUp("right") ;release rmb
-			MouseDown("left") ;hold lmb
-		EndIf
 		MouseMove(($data[$i])[1], ($data[$i])[2], 0) ;move mouse to coord
+		Select
+			Case ($data[$i])[3] = "R"
+				If _IsPressed(01) Then MouseUp("left")
+				If Not _IsPressed(02) Then MouseDown("right")
+			Case ($data[$i])[3] = "L"
+				If _IsPressed(02) Then MouseUp("right")
+				If Not _IsPressed(01) Then MouseDown("left")
+			Case ($data[$i])[3] = "S"
+				Send("{SPACE 10}")
+		EndSelect
 	Next
 	MouseUp("left")
 	MouseUp("right")
-;~ 	ClickAccept()
-;~ 	While PixelGetColor(821, 31) <> 16774043 ;wait for loading to begin
-;~ 		Sleep(1)
-;~ 	WEnd
-;~ 	While PixelGetColor(821, 31) = 16774043 ;wait for loading to end
-;~ 		Sleep(1)
-;~ 	WEnd
-;~ 	ClickAccept()
+	ClickAccept()
+	While PixelGetColor(821, 31) <> 16774043 ;wait for loading to begin
+		Sleep(1)
+	WEnd
+	While PixelGetColor(821, 31) = 16774043 ;wait for loading to end
+		Sleep(1)
+	WEnd
+	ClickAccept()
 EndFunc   ;==>SpaceBotReplay
 
 Func Missions()
@@ -241,7 +251,7 @@ EndFunc   ;==>BlackTalon
 
 Func TreasureHuntingLockboxes()
 	While True
-		Send("{V 10}") ;Jump (Anti-afk)
+		Send("{V 10}") ;Anti-afk
 
 		$first = PixelGetColor(247, 263, $handle) = 16764730 ;Check if first companion is back
 		$second = PixelGetColor(247, 363, $handle) = 16762909 ;Check if second companion is back
