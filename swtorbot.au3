@@ -10,7 +10,7 @@ AutoItSetOption("PixelCoordMode", 2)
 #include <File.au3>
 #include <Array.au3>
 
-Global $paused = True, $handle = 0, $GiveGiftsModule, $CraftModule, $MissionsModule, $THLockboxesModule, $SpaceBotRecordModule, $SpaceBotModule, $BlackTalonModule, $GiveGiftsButton
+Global $paused = True, $handle = 0, $GiveGiftsModule, $CraftModule, $MissionsModule, $THLockboxesModule, $SpaceBotRecordModule, $SpaceBotModule, $BlackTalonModule, $GiveGiftsButton, $RecordedDirectory
 
 CheckForSWTORWindow()
 ReadIni()
@@ -45,7 +45,7 @@ Func CheckForSWTORWindow()
 EndFunc   ;==>CheckForSWTORWindow
 
 Func SpaceBot()
-	Local $fileList = _FileListToArray("recorded") ;read all files in the folder
+	Local $fileList = _FileListToArray($RecordedDirectory) ;read all files in the folder
 	For $i = 1 To $fileList[0] ;for each file
 		SpaceBotReplay($fileList[$i]) ;play space mission
 	Next
@@ -67,14 +67,14 @@ Func SpacebotRecord()
 	$mc = MouseGetPos()
 	$missionCoords[2] = $mc[0] ;coord x of the mission in the galaxy part
 	$missionCoords[3] = $mc[1] ;coord y of the mission in the galaxy part
-	Local $currentArray[1][4], $spaceBotFileHandle = FileOpen("recorded/" & _ArrayToString($missionCoords, ' '), 2), $currentMousePos[2] = [0, 0]
+	Local $currentArray[1][4], $spaceBotFileHandle = FileOpen($RecordedDirectory & "/" & _ArrayToString($missionCoords, ' '), 2), $currentMousePos[2] = [0, 0]
 	_ArrayDelete($currentArray, 0)
-;~ 	While PixelGetColor(821, 31) <> 16774043 ;wait for loading to begin
-;~ 		Sleep(1)
-;~ 	WEnd
-;~ 	While PixelGetColor(821, 31) = 16774043 ;wait for loading to end
-;~ 		Sleep(1)
-;~ 	WEnd
+	While PixelGetColor(821, 31) <> 16774043 ;wait for loading to begin
+		Sleep(1)
+	WEnd
+	While PixelGetColor(821, 31) = 16774043 ;wait for loading to end
+		Sleep(1)
+	WEnd
 	Local $startRecordTime = TimerInit() ;start timer
 	While True
 		While _IsPressed(01) Or _IsPressed(02) ;if some mb is pressed
@@ -101,30 +101,30 @@ EndFunc   ;==>SpacebotRecord
 Func SpaceBotReplay($fileName)
 	Local $data[1][4]
 	_ArrayDelete($data, 0)
-	_FileReadToArray("recorded/" & $fileName, $data) ;read data from the file
+	_FileReadToArray($RecordedDirectory & "/" & $fileName, $data) ;read data from the file
 	_ArrayDelete($data, 0)
 	For $i = 0 To UBound($data) - 1
 		$data[$i] = StringSplit($data[$i], ' ') ;make array of each line
 		_ArrayDelete($data[$i], 0)
 	Next
 
-;~ 	Local $coords = StringSplit($fileName, ' ')
-;~ 	Send("+M") ;open galaxy map
-;~ 	Sleep(1000)
-;~ 	MouseClick("left", $coords[1], $coords[2]) ;click part of the galaxy
-;~ 	Sleep(1000)
-;~ 	MouseClick("left", $coords[3], $coords[4]) ;click mission
-;~ 	Sleep(1000)
-;~ 	MouseClick("left", 1381, 494) ;click travel
-;~ 	Sleep(1000)
-;~ 	MouseClick("left", 1058, 576) ;click confirm
+	Local $coords = StringSplit($fileName, ' ')
+	Send("+M") ;open galaxy map
+	Sleep(1000)
+	MouseClick("left", $coords[1], $coords[2]) ;click part of the galaxy
+	Sleep(1000)
+	MouseClick("left", $coords[3], $coords[4]) ;click mission
+	Sleep(1000)
+	MouseClick("left", 1381, 494) ;click travel
+	Sleep(1000)
+	MouseClick("left", 1058, 576) ;click confirm
 
-;~ 	While PixelGetColor(821, 31) <> 16774043 ;wait for loading to begin
-;~ 		Sleep(1)
-;~ 	WEnd
-;~ 	While PixelGetColor(821, 31) = 16774043 ;wait for loading to end
-;~ 		Sleep(1)
-;~ 	WEnd
+	While PixelGetColor(821, 31) <> 16774043 ;wait for loading to begin
+		Sleep(1)
+	WEnd
+	While PixelGetColor(821, 31) = 16774043 ;wait for loading to end
+		Sleep(1)
+	WEnd
 
 	MouseDown("left")
 	Local $startPlayTime = TimerInit() ;start timer
@@ -204,7 +204,7 @@ Func Missions()
 			EndIf
 		Next
 	WEnd
-EndFunc   ;==>DistributedMissions
+EndFunc   ;==>Missions
 
 Func ChooseGrade($grade)
 	MouseClick("left", 1643, 241, 1) ;click on grade dropdown
@@ -387,9 +387,10 @@ Func NextInArray($companionNum, ByRef $missions, ByRef $actualCompanionIndeces)
 EndFunc   ;==>NextInArray
 
 Func ReadIni()
-    HotKeySet("{" & IniRead(@ScriptDir & "\swtorbot.ini", "General", "PauseKey", "F1") & "}", "TogglePause")
-    HotKeySet("{" & IniRead(@ScriptDir & "\swtorbot.ini", "General", "ShutdownKey", "F5") & "}", "Quit")
-	$GiveGiftsButton = IniRead(@ScriptDir & "\swtorbot.ini", "Modules", "GiveGiftsButton", "1")
+	HotKeySet("{" & IniRead(@ScriptDir & "\swtorbot.ini", "General", "PauseKey", "F1") & "}", "TogglePause")
+	HotKeySet("{" & IniRead(@ScriptDir & "\swtorbot.ini", "General", "ShutdownKey", "F5") & "}", "Quit")
+	$GiveGiftsButton = IniRead(@ScriptDir & "\swtorbot.ini", "General", "GiveGiftsButton", "1")
+	$RecordedDirectory = IniRead(@ScriptDir & "\swtorbot.ini", "General", "FolderForSpaceBot", "recorded")
 
 	$GiveGiftsModule = IniRead(@ScriptDir & "\swtorbot.ini", "Modules", "GiveGifts", 0) = 1
 	$CraftModule = IniRead(@ScriptDir & "\swtorbot.ini", "Modules", "Craft", 0) = 1
