@@ -10,9 +10,9 @@ AutoItSetOption("PixelCoordMode", 2)
 #include <File.au3>
 #include <Array.au3>
 
-Global $paused = False, $handle = 0, $GiveGiftsModule, $CraftModule, $MissionsModule, $THLockboxesModule, $SpaceBotRecordModule, $SpaceBotModule, $BlackTalonModule, $GiveGiftsButton, $RecordedDirectory
+Global $paused = False, $handle = 0, $GiveGiftsModule, $CraftModule, $MissionsModule, $THLockboxesModule, $SpaceBotRecordModule, $SpaceBotModule, $BlackTalonModule, $GiveGiftsButton
 
-;~ CheckForSWTORWindow()
+CheckForSWTORWindow()
 ReadIni()
 TogglePause()
 Select
@@ -46,7 +46,7 @@ Func CheckForSWTORWindow()
 EndFunc   ;==>CheckForSWTORWindow
 
 Func SpaceBot()
-	Local $fileList = _FileListToArray($RecordedDirectory) ;read all files in the folder
+	Local $fileList = _FileListToArray("recorded") ;read all files in the folder
 	For $i = 1 To $fileList[0] ;for each file
 		SpaceBotReplay($fileList[$i]) ;play space mission
 	Next
@@ -54,6 +54,7 @@ EndFunc   ;==>SpaceBot
 
 Func SpacebotRecord()
 	Local $missionCoords[4] ;coords to create the fileName
+	Send("+M") ;open galaxy map
 	While Not _IsPressed(01) ;wait for lmb to get pressed
 		Sleep(1)
 	WEnd
@@ -68,8 +69,7 @@ Func SpacebotRecord()
 	$mc = MouseGetPos()
 	$missionCoords[2] = $mc[0] ;coord x of the mission in the galaxy part
 	$missionCoords[3] = $mc[1] ;coord y of the mission in the galaxy part
-	Local $currentArray[1][4], $spaceBotFileHandle = FileOpen($RecordedDirectory & "/" & _ArrayToString($missionCoords, ' '), 2), $currentMousePos[2] = [0, 0]
-	_ArrayDelete($currentArray, 0)
+	Local $currentArray[0][4], $fileHandle = FileOpen("recorded/" & _ArrayToString($missionCoords, ' '), 2)
 	While PixelGetColor(821, 31) <> 16774043 ;wait for loading to begin
 		Sleep(1)
 	WEnd
@@ -77,41 +77,31 @@ Func SpacebotRecord()
 		Sleep(1)
 	WEnd
 	Local $startRecordTime = TimerInit() ;start timer
-	While True
-		While _IsPressed(01) Or _IsPressed(02) Or _IsPressed(20) ;if some mb or spacebar is pressed
-			Local $strToAdd = "-"
-			Local $pos = MouseGetPos()
-;~ 			If ($pos[0] = $currentMousePos[0] And $pos[1] = $currentMousePos[1]) Then ;if mouse position didn't change
-;~ 				ContinueLoop
-;~ Else
-			If _IsPressed(01) Then ;if rmb is pressed
+	While Not _IsPressed(71) ;until F2 is pressed
+		Local $strToAdd = "-", $pos = MouseGetPos()
+		Select
+			Case _IsPressed(01) ;if lmb is pressed
 				$strToAdd = "L"
-			ElseIf _IsPressed(02) Then ;if rmb is pressed
+			Case _IsPressed(02) ;if rmb is pressed
 				$strToAdd = "R"
-			ElseIf _IsPressed(20) Then ;if spacebar is pressed
+			Case _IsPressed(20) ;if spacebar is pressed
 				$strToAdd = "S"
-			EndIf
-			$currentMousePos[0] = $pos[0] ;current pos = new pos
-			$currentMousePos[1] = $pos[1]
-			_ArrayAdd($currentArray, TimerDiff($startRecordTime) & '|' & $pos[0] & '|' & $pos[1] & '|' & $strToAdd) ;add time, coords and mouse button to timeline
-		WEnd
-
-		For $i = 0 To UBound($currentArray) - 1 ;write to file
-			FileWriteLine($spaceBotFileHandle, $currentArray[$i][0] & ' ' & $currentArray[$i][1] & ' ' & $currentArray[$i][2] & ' ' & $currentArray[$i][3]) ;append current timeline to the file
-		Next
-		Local $currentArray[1][4] ;clear the timeline
-		_ArrayDelete($currentArray, 0)
+		EndSelect
+		_ArrayAdd($currentArray, TimerDiff($startRecordTime) & '|' & $pos[0] & '|' & $pos[1] & '|' & $strToAdd) ;add time, coords and mouse button to timeline
 	WEnd
+
+	For $i = 0 To UBound($currentArray) - 1 ;write to file
+		FileWriteLine($fileHandle, _ArrayToString($currentArray, ' ', $i, $i)) ;append current timeline to the file
+	Next
+
+	FileClose($fileHandle)
 EndFunc   ;==>SpacebotRecord
 
 Func SpaceBotReplay($fileName)
-	Local $data[1][4]
-	_ArrayDelete($data, 0)
-	_FileReadToArray($RecordedDirectory & "/" & $fileName, $data) ;read data from the file
-	_ArrayDelete($data, 0)
-	For $i = 0 To UBound($data) - 1
+	Local $data
+	_FileReadToArray("recorded/" & $fileName, $data) ;read data from the file
+	For $i = 1 To $data[0] - 1
 		$data[$i] = StringSplit($data[$i], ' ') ;make array of each line
-		_ArrayDelete($data[$i], 0)
 	Next
 
 	Local $coords = StringSplit($fileName, ' ')
@@ -133,23 +123,23 @@ Func SpaceBotReplay($fileName)
 	WEnd
 
 	Local $startPlayTime = TimerInit() ;start timer
-	For $i = 0 To UBound($data) - 1
-		If ($data[$i])[0] - TimerDiff($startPlayTime) > 1000 Then ;release buttons if there's a break
+	For $i = 1 To $data[0] - 1
+		If ($data[$i])[1] - TimerDiff($startPlayTime) > 5 Then ;release buttons if there's a break
 			MouseUp("left")
 			MouseUp("right")
 		EndIf
-		While TimerDiff($startPlayTime) < ($data[$i])[0] ;if it's not time for another line yet
+		While TimerDiff($startPlayTime) < ($data[$i])[1] ;if it's not time for another line yet
 			Sleep(1)
 		WEnd
-		MouseMove(($data[$i])[1], ($data[$i])[2], 0) ;move mouse to coord
+		MouseMove(($data[$i])[2], ($data[$i])[3], 0) ;move mouse to coord
 		Select
-			Case ($data[$i])[3] = "R"
+			Case ($data[$i])[4] = "R"
 				If _IsPressed(01) Then MouseUp("left")
 				If Not _IsPressed(02) Then MouseDown("right")
-			Case ($data[$i])[3] = "L"
+			Case ($data[$i])[4] = "L"
 				If _IsPressed(02) Then MouseUp("right")
 				If Not _IsPressed(01) Then MouseDown("left")
-			Case ($data[$i])[3] = "S"
+			Case ($data[$i])[4] = "S"
 				Send("{SPACE 10}")
 		EndSelect
 	Next
@@ -400,7 +390,6 @@ Func ReadIni()
 	HotKeySet("{" & IniRead(@ScriptDir & "\swtorbot.ini", "General", "PauseKey", "F1") & "}", "TogglePause")
 	HotKeySet("{" & IniRead(@ScriptDir & "\swtorbot.ini", "General", "ShutdownKey", "F5") & "}", "Quit")
 	$GiveGiftsButton = IniRead(@ScriptDir & "\swtorbot.ini", "General", "GiveGiftsButton", "1")
-	$RecordedDirectory = IniRead(@ScriptDir & "\swtorbot.ini", "General", "FolderForSpaceBot", "recorded")
 
 	$GiveGiftsModule = IniRead(@ScriptDir & "\swtorbot.ini", "Modules", "GiveGifts", 0) = 1
 	$CraftModule = IniRead(@ScriptDir & "\swtorbot.ini", "Modules", "Craft", 0) = 1
