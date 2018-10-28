@@ -10,15 +10,18 @@
 AutoItSetOption("MouseCoordMode", 2)
 AutoItSetOption("PixelCoordMode", 2)
 
+;~ HotKeySet("{F2}", "GetMouse")
+
 #include <Misc.au3>
 #include <File.au3>
 #include <Array.au3>
 
-Global $paused = False, $handle = 0, $GiveGiftsModule, $CraftModule, $MissionsModule, $THLockboxesModule, $SpaceBotRecordModule, $SpaceBotReplayModule, $BlackTalonModule, $GiveGiftsButton
+Global $paused = False, $handle = 0, $GiveGiftsModule, $CraftModule, $MissionsModule, $THLockboxesModule, $SpaceBotRecordModule, $SpaceBotReplayModule, $BlackTalonModule, $GiveGiftsButton, $ShipGrade, $Side, $SkipConvos, $SkipConvosChoice, $LoopJabiimEscort, $LoopFondorEscort
 
 CheckForSWTORWindow()
 ReadIni()
 TogglePause()
+
 Select
 	Case $GiveGiftsModule
 		GiveGifts()
@@ -34,7 +37,31 @@ Select
 		SpaceBot()
 	Case $BlackTalonModule
 		BlackTalon()
+	Case $SkipConvos
+		SkipConvos()
+	Case $LoopJabiimEscort
+		LoopJabiimEscort()
+	Case $LoopFondorEscort
+		LoopFondorEscort()
 EndSelect
+
+Func LoopFondorEscort()
+	While True
+		SpaceBotReplay("Fondor Escort")
+	WEnd
+EndFunc   ;==>LoopFondorEscort
+
+Func LoopJabiimEscort()
+	While True
+		SpaceBotReplay("Jabiim Escort")
+	WEnd
+EndFunc   ;==>LoopJabiimEscort
+
+Func SkipConvos()
+	While True
+		ConvClick($SkipConvosChoice)
+	WEnd
+EndFunc   ;==>SkipConvos
 
 Func CheckForSWTORWindow()
 	$handle = WinActivate("Star Wars™: The Old Republic™")
@@ -50,48 +77,52 @@ Func CheckForSWTORWindow()
 EndFunc   ;==>CheckForSWTORWindow
 
 Func SpaceBot()
-	Local $fileList = _FileListToArray("recorded") ;read all files in the folder
+	Local $vDLL = DllOpen("user32.dll")
+;~ 	MouseClick("right", 963, 325)
+;~ 	Sleep(1000)
+;~ 	For $i = 0 To 30
+;~ 		MouseClick("left", 569, 677)
+;~ 	Next
+	Local $fileList = _FileListToArray("recorded/" & $Side & '/' & $ShipGrade) ;read all files in the folder
 	For $i = 1 To $fileList[0] ;for each file
 		SpaceBotReplay($fileList[$i]) ;play space mission
 	Next
 EndFunc   ;==>SpaceBot
 
 Func SpacebotRecord()
-	Local $missionCoords[4] ;coords to create the fileName
+	Local $vDLL = DllOpen("user32.dll"), $missionCoords[4] ;coords of the mission on the galaxy map
 	Send("+M") ;open galaxy map
-	While Not _IsPressed(01) ;wait for lmb to get pressed
+	While Not _IsPressed(01, $vDLL) ;wait for lmb to get pressed
 		Sleep(1)
 	WEnd
 	MouseUp("left") ;release lmb
 	Local $mc = MouseGetPos()
 	$missionCoords[0] = $mc[0] ;coord x of the galaxy part
 	$missionCoords[1] = $mc[1] ;coord y of the galaxy part
-	While Not _IsPressed(01) ;wait for lmb to get pressed
+	While Not _IsPressed(01, $vDLL) ;wait for lmb to get pressed
 		Sleep(1)
 	WEnd
 	MouseUp("left")
 	$mc = MouseGetPos()
 	$missionCoords[2] = $mc[0] ;coord x of the mission in the galaxy part
 	$missionCoords[3] = $mc[1] ;coord y of the mission in the galaxy part
-	Local $currentArray[0][4], $fileHandle = FileOpen("recorded/" & _ArrayToString($missionCoords, ' '), 2)
-	While PixelGetColor(821, 31) <> 16774043 ;wait for loading to begin
+	Local $currentArray[0][4], $fileHandle = FileOpen("recorded/" & $Side & '/' & $ShipGrade & '/' & _ArrayToString($missionCoords, ' '), 2)
+	While PixelGetColor(821, 31, $handle) <> 16774043 ;wait for loading to begin
 		Sleep(1)
 	WEnd
 	While PixelGetColor(821, 31) = 16774043 ;wait for loading to end
 		Sleep(1)
 	WEnd
 	Local $startRecordTime = TimerInit() ;start timer
-	While Not _IsPressed(71) ;until F2 is pressed
-		Local $strToAdd = "-", $pos = MouseGetPos()
+	While Not _IsPressed(71, $vDLL) ;until F2 is pressed
+		Local $strToAdd = "-", $pos = MouseGetPos(), $timerDiff = TimerDiff($startRecordTime)
 		Select
-			Case _IsPressed(01) ;if lmb is pressed
+			Case _IsPressed(01, $vDLL) ;if lmb is pressed
 				$strToAdd = "L"
-			Case _IsPressed(02) ;if rmb is pressed
+			Case _IsPressed(02, $vDLL) ;if rmb is pressed
 				$strToAdd = "R"
-			Case _IsPressed(20) ;if spacebar is pressed
-				$strToAdd = "S"
 		EndSelect
-		_ArrayAdd($currentArray, TimerDiff($startRecordTime) & '|' & $pos[0] & '|' & $pos[1] & '|' & $strToAdd) ;add time, coords and mouse button to timeline
+		_ArrayAdd($currentArray, $timerDiff & '|' & $pos[0] & '|' & $pos[1] & '|' & $strToAdd) ;add time, coords and mouse button to timeline
 	WEnd
 
 	For $i = 0 To UBound($currentArray) - 1 ;write to file
@@ -99,16 +130,21 @@ Func SpacebotRecord()
 	Next
 
 	FileClose($fileHandle)
+	DllClose($vDLL)
 EndFunc   ;==>SpacebotRecord
 
 Func SpaceBotReplay($fileName)
-	Local $data
-	_FileReadToArray("recorded/" & $fileName, $data) ;read data from the file
-	For $i = 1 To $data[0] - 1
+	Local $data, $records[0][2], $lastSavedChar = ''
+	_FileReadToArray("recorded/" & $Side & '/' & $ShipGrade & '/' & $fileName, $data) ;read data from the file
+	For $i = 3 To $data[0] - 1
 		$data[$i] = StringSplit($data[$i], ' ') ;make array of each line
+		If ($data[$i])[4] <> $lastSavedChar Then
+			$lastSavedChar = ($data[$i])[4]
+			_ArrayAdd($records, $i & '|' & $lastSavedChar)
+		EndIf
 	Next
 
-	Local $coords = StringSplit($fileName, ' ')
+	Local $coords = StringSplit($data[1], ' ')
 	Send("+M") ;open galaxy map
 	Sleep(1000)
 	MouseClick("left", $coords[1], $coords[2]) ;click part of the galaxy
@@ -119,41 +155,41 @@ Func SpaceBotReplay($fileName)
 	Sleep(1000)
 	MouseClick("left", 1058, 576) ;click confirm
 
-	While PixelGetColor(821, 31) <> 16774043 ;wait for loading to begin
+	While PixelGetColor(821, 31, $handle) <> 16774043 ;wait for loading to begin
 		Sleep(1)
 	WEnd
-	While PixelGetColor(821, 31) = 16774043 ;wait for loading to end
+	While PixelGetColor(821, 31, $handle) = 16774043 ;wait for loading to end
 		Sleep(1)
 	WEnd
 
-	Local $startPlayTime = TimerInit() ;start timer
-	For $i = 1 To $data[0] - 1
-		If ($data[$i])[1] - TimerDiff($startPlayTime) > 5 Then ;release buttons if there's a break
-			MouseUp("left")
-			MouseUp("right")
-		EndIf
+	Local $j = 0, $startPlayTime = TimerInit() ;start timer
+	For $i = 3 To $data[0] - 1
 		While TimerDiff($startPlayTime) < ($data[$i])[1] ;if it's not time for another line yet
 			Sleep(1)
 		WEnd
 		MouseMove(($data[$i])[2], ($data[$i])[3], 0) ;move mouse to coord
-		Select
-			Case ($data[$i])[4] = "R"
-				If _IsPressed(01) Then MouseUp("left")
-				If Not _IsPressed(02) Then MouseDown("right")
-			Case ($data[$i])[4] = "L"
-				If _IsPressed(02) Then MouseUp("right")
-				If Not _IsPressed(01) Then MouseDown("left")
-			Case ($data[$i])[4] = "S"
-				Send("{SPACE 10}")
-		EndSelect
+		If $j < UBound($records) And $records[$j][0] = $i Then
+			Select
+				Case $records[$j][1] = '-'
+					MouseUp("left")
+					MouseUp("right")
+				Case $records[$j][1] = 'L'
+					MouseUp("right")
+					MouseDown("left")
+				Case $records[$j][1] = 'R'
+					MouseUp("left")
+					MouseDown("right")
+			EndSelect
+			$j = $j + 1
+		EndIf
 	Next
 	MouseUp("left")
 	MouseUp("right")
 	ClickAccept()
-	While PixelGetColor(821, 31) <> 16774043 ;wait for loading to begin
+	While PixelGetColor(821, 31, $handle) <> 16774043 ;wait for loading to begin
 		Sleep(1)
 	WEnd
-	While PixelGetColor(821, 31) = 16774043 ;wait for loading to end
+	While PixelGetColor(821, 31, $handle) = 16774043 ;wait for loading to end
 		Sleep(1)
 	WEnd
 	ClickAccept()
@@ -357,7 +393,7 @@ EndFunc   ;==>Craft
 
 Func TogglePause()
 	$paused = Not $paused
-	TrayTip("SWTOR Bot", $paused ? "Paused." : "Unpaused.", 5)
+;~ 	TrayTip("SWTOR Bot", $paused ? "Paused." : "Unpaused.", 5)
 	While $paused
 		Sleep(1)
 	WEnd
@@ -394,6 +430,7 @@ Func ReadIni()
 	HotKeySet("{" & IniRead(@ScriptDir & "\swtorbot.ini", "General", "PauseKey", "F1") & "}", "TogglePause")
 	HotKeySet("{" & IniRead(@ScriptDir & "\swtorbot.ini", "General", "ShutdownKey", "F5") & "}", "Quit")
 	$GiveGiftsButton = IniRead(@ScriptDir & "\swtorbot.ini", "General", "GiveGiftsButton", "1")
+	$SkipConvosChoice = IniRead(@ScriptDir & "\swtorbot.ini", "General", "SkipConvosChoice", 1)
 
 	$GiveGiftsModule = IniRead(@ScriptDir & "\swtorbot.ini", "Modules", "GiveGifts", 0) = 1
 	$CraftModule = IniRead(@ScriptDir & "\swtorbot.ini", "Modules", "Craft", 0) = 1
@@ -402,4 +439,11 @@ Func ReadIni()
 	$SpaceBotRecordModule = IniRead(@ScriptDir & "\swtorbot.ini", "Modules", "SpaceBotRecord", 0) = 1
 	$SpaceBotReplayModule = IniRead(@ScriptDir & "\swtorbot.ini", "Modules", "SpaceBotReplay", 0) = 1
 	$BlackTalonModule = IniRead(@ScriptDir & "\swtorbot.ini", "Flashpoints", "BlackTalon", 0) = 1
+	$SkipConvos = IniRead(@ScriptDir & "\swtorbot.ini", "Modules", "SkipConvos", 0) = 1
+	$LoopJabiimEscort = IniRead(@ScriptDir & "\swtorbot.ini", "Modules", "LoopJabiimEscort", 0) = 1
+	$LoopFondorEscort = IniRead(@ScriptDir & "\swtorbot.ini", "Modules", "LoopFondorEscort", 0) = 1
+	$ShipGrade = IniRead(@ScriptDir & "\swtorbot.ini", "SpaceBot", "Grade", 0)
+	$Side = IniRead(@ScriptDir & "\swtorbot.ini", "SpaceBot", "Side", 0)
 EndFunc   ;==>ReadIni
+
+
